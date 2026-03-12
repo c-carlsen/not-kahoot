@@ -40,7 +40,7 @@ export default function Join() {
         data = await response.json();
         if (response.ok) break;
         if (response.status === 404 && attempt < 4) {
-          setMessage("Waking up the room, please wait...");
+          setMessage("Waking up the room. If this keeps failing, ask the host to click Create Room.");
           await wait(700);
           continue;
         }

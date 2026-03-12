@@ -217,9 +217,14 @@ export default function Library() {
               <h2>Saved quizzes</h2>
               <p className="muted">Pick one in the Host page to start a game.</p>
             </div>
-            <button className="btn secondary" onClick={loadQuizzes}>
-              Refresh
-            </button>
+            <div className="button-row">
+              <button className="btn secondary" onClick={loadQuizzes}>
+                Refresh
+              </button>
+              <button className="btn" onClick={addSampleQuiz}>
+                Add sample quiz (10)
+              </button>
+            </div>
           </div>
           <ol className="leaderboard">
             {quizzes.map((quiz) => (
@@ -228,6 +233,7 @@ export default function Library() {
               </li>
             ))}
           </ol>
+          {!quizzes.length ? <p className="muted">No quizzes yet. Add the sample quiz above.</p> : null}
         </div>
       </section>
     </main>

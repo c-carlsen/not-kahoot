@@ -62,7 +62,7 @@ export default function Play() {
         setQuestion(data.currentQuestion || null);
       } catch (_) {
       }
-    }, 900);
+    }, 700);
 
     return () => clearInterval(interval);
   }, [player, lastQuestionIndex]);

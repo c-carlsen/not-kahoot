@@ -161,6 +161,7 @@ export default function Host() {
                 <p className="muted">Scan to join from a phone.</p>
               </div>
             ) : null}
+            <p className="muted">Players can join now. Start the game whenever everyone is in.</p>
 
             <h2>Quiz library</h2>
             <p className="muted">Choose a saved quiz for this room.</p>
