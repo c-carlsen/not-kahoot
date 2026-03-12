@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
 const fs = require("fs");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const baseDir = path.join(__dirname);
@@ -10,7 +11,13 @@ const clientDist = path.join(baseDir, "client", "dist");
 // TODO: Put ADMIN_KEY in your .env file to protect future admin routes.
 const adminKey = process.env.ADMIN_KEY || "";
 
+// TODO: Add your Supabase project URL + service key in .env and Vercel env vars.
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY || "";
+const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
+
 const QUESTION_DURATION_SECONDS = Number(process.env.QUESTION_DURATION_SECONDS || 20);
+const REVEAL_DURATION_SECONDS = Number(process.env.REVEAL_DURATION_SECONDS || 6);
 
 const rooms = new Map();
 
@@ -41,9 +48,37 @@ function remainingSeconds(room) {
 }
 
 function ensureQuestionAdvance(room) {
-  if (room.status === "question" && remainingSeconds(room) <= 0) {
-    room.status = "lobby";
+  if (room.status !== "question" || room.currentIndex < 0) return;
+  const answers = room.answersByQuestion.get(room.currentIndex) || new Map();
+  const allAnswered = room.players.size > 0 && answers.size >= room.players.size;
+  if (remainingSeconds(room) <= 0 || allAnswered) {
+    room.status = "reveal";
+    room.revealStart = getNow();
   }
+}
+
+function ensureRevealAdvance(room) {
+  if (room.status !== "reveal") return;
+  const elapsed = (getNow() - room.revealStart) / 1000;
+  if (elapsed >= REVEAL_DURATION_SECONDS) {
+    room.status = "leaderboard";
+  }
+}
+
+function resetPlayerRound(room) {
+  room.players.forEach((player) => {
+    player.lastPoints = 0;
+    player.lastCorrect = null;
+    player.lastAnswerIndex = null;
+  });
+}
+
+function requireSupabase(res) {
+  if (!supabase) {
+    res.status(500).json({ error: "Supabase is not configured" });
+    return false;
+  }
+  return true;
 }
 
 function sortedPlayers(room) {
@@ -66,8 +101,11 @@ app.post("/api/create-room", (req, res) => {
     questions: [],
     currentIndex: -1,
     questionStart: 0,
+    revealStart: 0,
     players: new Map(),
-    answersByQuestion: new Map()
+    answersByQuestion: new Map(),
+    quizId: null,
+    quizTitle: ""
   });
 
   res.json({ roomCode, hostToken });
@@ -88,8 +126,87 @@ app.post("/api/join", (req, res) => {
   }
 
   const playerId = crypto.randomUUID().replace(/-/g, "");
-  room.players.set(playerId, { id: playerId, name: name.slice(0, 24), score: 0 });
+  room.players.set(playerId, {
+    id: playerId,
+    name: name.slice(0, 24),
+    score: 0,
+    lastPoints: 0,
+    lastCorrect: null,
+    lastAnswerIndex: null
+  });
   res.json({ playerId });
+});
+
+app.get("/api/quizzes", async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { data, error } = await supabase
+    .from("quizzes")
+    .select("id,title,questions")
+    .order("created_at", { ascending: false });
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+  const formatted = (data || []).map((quiz) => ({
+    id: quiz.id,
+    title: quiz.title,
+    questionCount: Array.isArray(quiz.questions) ? quiz.questions.length : 0
+  }));
+  res.json({ quizzes: formatted });
+});
+
+app.get("/api/quizzes/:id", async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const { data, error } = await supabase.from("quizzes").select("id,title,questions").eq("id", req.params.id).single();
+  if (error || !data) {
+    res.status(404).json({ error: "Quiz not found" });
+    return;
+  }
+  res.json({ quiz: data });
+});
+
+app.post("/api/quizzes", async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const title = String(req.body.title || "").trim();
+  const questions = Array.isArray(req.body.questions) ? req.body.questions : [];
+  if (!title) {
+    res.status(400).json({ error: "title is required" });
+    return;
+  }
+
+  const normalized = [];
+  for (const question of questions) {
+    const text = String(question.text || "").trim();
+    const answers = Array.isArray(question.answers) ? question.answers : [];
+    const correctIndex = Number(question.correctIndex || 0);
+    if (!text || answers.length !== 4) {
+      res.status(400).json({ error: "Invalid question format" });
+      return;
+    }
+    const cleaned = answers.map((answer) => String(answer || "").trim());
+    if (cleaned.some((answer) => !answer)) {
+      res.status(400).json({ error: "All answers are required" });
+      return;
+    }
+    if (correctIndex < 0 || correctIndex > 3) {
+      res.status(400).json({ error: "correctIndex must be 0-3" });
+      return;
+    }
+    normalized.push({ text, answers: cleaned, correctIndex });
+  }
+
+  const { data, error } = await supabase
+    .from("quizzes")
+    .insert({ title, questions: normalized })
+    .select("id,title")
+    .single();
+
+  if (error) {
+    res.status(500).json({ error: error.message });
+    return;
+  }
+
+  res.json({ quiz: data });
 });
 
 app.put("/api/room/:code/questions", (req, res) => {
@@ -136,7 +253,42 @@ app.put("/api/room/:code/questions", (req, res) => {
   room.status = "lobby";
   room.currentIndex = -1;
   room.answersByQuestion = new Map();
+  room.quizId = null;
+  room.quizTitle = "";
   res.json({ ok: true, questionCount: normalized.length });
+});
+
+app.post("/api/room/:code/load-quiz", async (req, res) => {
+  if (!requireSupabase(res)) return;
+  const roomCode = req.params.code.toUpperCase();
+  const { hostToken, quizId } = req.body || {};
+  const room = rooms.get(roomCode);
+  if (!room) {
+    res.status(404).json({ error: "Room not found" });
+    return;
+  }
+  if (room.hostToken !== hostToken) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  if (!quizId) {
+    res.status(400).json({ error: "quizId is required" });
+    return;
+  }
+
+  const { data, error } = await supabase.from("quizzes").select("id,title,questions").eq("id", quizId).single();
+  if (error || !data) {
+    res.status(404).json({ error: "Quiz not found" });
+    return;
+  }
+
+  room.questions = Array.isArray(data.questions) ? data.questions : [];
+  room.quizId = data.id;
+  room.quizTitle = data.title;
+  room.status = "lobby";
+  room.currentIndex = -1;
+  room.answersByQuestion = new Map();
+  res.json({ ok: true, quizTitle: data.title, questionCount: room.questions.length });
 });
 
 app.post("/api/room/:code/start", (req, res) => {
@@ -161,6 +313,8 @@ app.post("/api/room/:code/start", (req, res) => {
   room.status = "question";
   room.currentIndex = 0;
   room.questionStart = getNow();
+  room.revealStart = 0;
+  resetPlayerRound(room);
   room.answersByQuestion.set(0, new Map());
   res.json({ ok: true });
 });
@@ -187,6 +341,8 @@ app.post("/api/room/:code/next", (req, res) => {
     room.status = "question";
     room.currentIndex = nextIndex;
     room.questionStart = getNow();
+    room.revealStart = 0;
+    resetPlayerRound(room);
     room.answersByQuestion.set(nextIndex, new Map());
   }
   res.json({ ok: true });
@@ -233,7 +389,15 @@ app.post("/api/answer", (req, res) => {
   if (answerIndex === Number(q.correctIndex)) {
     const points = 500 + remainingSeconds(room) * 20;
     player.score += points;
+    player.lastPoints = points;
+    player.lastCorrect = true;
+  } else {
+    player.lastPoints = 0;
+    player.lastCorrect = false;
   }
+  player.lastAnswerIndex = answerIndex;
+
+  ensureQuestionAdvance(room);
   res.json({ ok: true });
 });
 
@@ -250,6 +414,7 @@ app.get("/api/room/:code/state", (req, res) => {
   }
 
   ensureQuestionAdvance(room);
+  ensureRevealAdvance(room);
 
   if (role === "host") {
     if (room.hostToken !== hostToken) {
@@ -265,7 +430,8 @@ app.get("/api/room/:code/state", (req, res) => {
       status: room.status,
       remainingSeconds: remainingSeconds(room),
       players: publicPlayers(room),
-      currentQuestionText
+      currentQuestionText,
+      quizTitle: room.quizTitle
     });
     return;
   }
@@ -282,7 +448,10 @@ app.get("/api/room/:code/state", (req, res) => {
       remainingSeconds: remainingSeconds(room),
       playerScore: player.score,
       players: publicPlayers(room),
-      currentQuestion: null
+      currentQuestion: null,
+      playerLastPoints: player.lastPoints,
+      playerLastCorrect: player.lastCorrect,
+      playerLastAnswerIndex: player.lastAnswerIndex
     };
 
     if (room.status === "question" && room.currentIndex >= 0) {
@@ -291,6 +460,16 @@ app.get("/api/room/:code/state", (req, res) => {
         index: room.currentIndex,
         text: q.text,
         answers: q.answers
+      };
+    }
+
+    if ((room.status === "reveal" || room.status === "leaderboard") && room.currentIndex >= 0) {
+      const q = room.questions[room.currentIndex];
+      payload.currentQuestion = {
+        index: room.currentIndex,
+        text: q.text,
+        answers: q.answers,
+        correctIndex: q.correctIndex
       };
     }
 

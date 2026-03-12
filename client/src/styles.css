@@ -12,11 +12,17 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
   background: linear-gradient(170deg, var(--ey-black), var(--ey-dark));
   color: var(--ey-white);
   font-family: "Segoe UI", Arial, sans-serif;
+  font-size: clamp(15px, 1.8vw, 18px);
 }
 
 a {
@@ -42,6 +48,7 @@ a {
   margin: 0;
   color: var(--ey-yellow);
   letter-spacing: 0.08em;
+  font-size: clamp(2rem, 4vw, 3.4rem);
 }
 
 .topbar p {
@@ -104,7 +111,8 @@ button.secondary {
   color: var(--ey-white);
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 0.6rem;
   border-radius: 8px;
@@ -170,6 +178,23 @@ input {
   gap: 0.6rem;
 }
 
+.qr-box {
+  display: grid;
+  place-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+}
+
+.qr-box img {
+  width: 180px;
+  height: 180px;
+  background: white;
+  padding: 0.4rem;
+  border-radius: 12px;
+}
+
 .info-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -202,6 +227,25 @@ input {
   text-align: left;
   background: #3f4357;
   color: var(--ey-white);
+}
+
+.answer-btn.correct {
+  background: var(--ok);
+}
+
+.answer-btn.wrong {
+  background: var(--warn);
+}
+
+.points-pill {
+  margin: 0;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 230, 0, 0.18);
+  border: 1px solid rgba(255, 230, 0, 0.45);
+  color: var(--ey-yellow);
+  font-weight: 700;
+  text-align: center;
 }
 
 .top3 li {

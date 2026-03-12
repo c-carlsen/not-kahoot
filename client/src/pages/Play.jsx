@@ -26,6 +26,9 @@ export default function Play() {
   const [feedback, setFeedback] = useState("");
   const [answered, setAnswered] = useState(false);
   const [lastQuestionIndex, setLastQuestionIndex] = useState(-1);
+  const [lastPoints, setLastPoints] = useState(0);
+  const [lastCorrect, setLastCorrect] = useState(null);
+  const [lastAnswerIndex, setLastAnswerIndex] = useState(null);
 
   const top3 = useMemo(() => players.slice(0, 3), [players]);
 
@@ -43,6 +46,9 @@ export default function Play() {
         setRemaining(data.remainingSeconds ? data.remainingSeconds : "-");
         setPlayers(data.players || []);
         setScore(data.playerScore || 0);
+        setLastPoints(data.playerLastPoints || 0);
+        setLastCorrect(data.playerLastCorrect);
+        setLastAnswerIndex(data.playerLastAnswerIndex);
 
         if (data.currentQuestion && data.currentQuestion.index !== lastQuestionIndex) {
           setAnswered(false);
@@ -106,7 +112,9 @@ export default function Play() {
           <span className="pill">{player.name}</span>
           <span className="pill">Score: {score}</span>
         </div>
-        <p className="muted">Status: {status === "question" ? "Live" : status}</p>
+        <p className="muted">
+          Status: {status === "question" ? "Live" : status === "reveal" ? "Reveal" : status}
+        </p>
 
         <div className="info-grid">
           <div className="info-card">
@@ -122,18 +130,30 @@ export default function Play() {
         </div>
 
         <div className="answer-list">
-          {question?.answers?.map((answer, index) => (
-            <button
-              key={answer}
-              className="answer-btn"
-              onClick={() => submitAnswer(index)}
-              disabled={answered}
-            >
-              {answer}
-            </button>
-          ))}
+          {question?.answers?.map((answer, index) => {
+            const isReveal = status === "reveal" || status === "leaderboard";
+            const isCorrect = isReveal && question?.correctIndex === index;
+            const isWrong =
+              isReveal && lastAnswerIndex === index && question?.correctIndex !== index;
+
+            return (
+              <button
+                key={`${answer}-${index}`}
+                className={`answer-btn${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`}
+                onClick={() => submitAnswer(index)}
+                disabled={answered || status !== "question"}
+              >
+                {answer}
+              </button>
+            );
+          })}
         </div>
         <p className="muted">{feedback}</p>
+        {status === "reveal" || status === "leaderboard" ? (
+          <p className="points-pill">
+            {lastCorrect ? `+${lastPoints} points!` : "No points this round"}
+          </p>
+        ) : null}
 
         <h3>Leaderboard</h3>
         <ol className="leaderboard">

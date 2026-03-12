@@ -1,17 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-const EMPTY_QUESTION = {
-  text: "",
-  answers: ["", "", "", ""],
-  correctIndex: 0
-};
-
 export default function Host() {
   const [roomCode, setRoomCode] = useState("");
   const [hostToken, setHostToken] = useState("");
-  const [draft, setDraft] = useState(EMPTY_QUESTION);
-  const [questions, setQuestions] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
+  const [selectedQuizId, setSelectedQuizId] = useState("");
+  const [loadedQuizTitle, setLoadedQuizTitle] = useState("");
+  const [loadedQuestionCount, setLoadedQuestionCount] = useState(0);
   const [status, setStatus] = useState("Lobby");
   const [timer, setTimer] = useState("-");
   const [currentQuestion, setCurrentQuestion] = useState("No active question");
@@ -22,6 +18,11 @@ export default function Host() {
     if (!roomCode) return "";
     return `${window.location.origin}/join?room=${roomCode}`;
   }, [roomCode]);
+
+  const qrSrc = useMemo(() => {
+    if (!shareLink) return "";
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareLink)}`;
+  }, [shareLink]);
 
   const top3 = useMemo(() => players.slice(0, 3), [players]);
 
@@ -40,41 +41,36 @@ export default function Host() {
     const data = await api("/api/create-room", "POST");
     setRoomCode(data.roomCode);
     setHostToken(data.hostToken);
+    setLoadedQuizTitle("");
+    setLoadedQuestionCount(0);
     setMessage("");
   }
 
-  function updateAnswer(index, value) {
-    setDraft((prev) => {
-      const answers = [...prev.answers];
-      answers[index] = value;
-      return { ...prev, answers };
-    });
-  }
-
-  function addQuestion() {
-    if (!draft.text.trim() || draft.answers.some((answer) => !answer.trim())) {
-      setMessage("Fill in the question and all answers.");
-      return;
+  async function loadQuizzes() {
+    try {
+      const data = await api("/api/quizzes");
+      setQuizzes(data.quizzes || []);
+    } catch (error) {
+      setMessage(error.message);
     }
-    setQuestions((prev) => [...prev, { ...draft, text: draft.text.trim() }]);
-    setDraft(EMPTY_QUESTION);
-    setMessage("Question added.");
   }
 
-  async function saveQuestions() {
+  async function loadSelectedQuiz() {
     if (!roomCode) {
       setMessage("Create a room first.");
       return;
     }
-    if (!questions.length) {
-      setMessage("Add at least one question.");
+    if (!selectedQuizId) {
+      setMessage("Select a quiz from the library.");
       return;
     }
-    await api(`/api/room/${roomCode}/questions`, "PUT", {
+    const data = await api(`/api/room/${roomCode}/load-quiz`, "POST", {
       hostToken,
-      questions
+      quizId: selectedQuizId
     });
-    setMessage("Questions saved to room.");
+    setLoadedQuizTitle(data.quizTitle || "");
+    setLoadedQuestionCount(data.questionCount || 0);
+    setMessage("Quiz loaded into room.");
   }
 
   async function startGame() {
@@ -98,6 +94,10 @@ export default function Host() {
   }
 
   useEffect(() => {
+    loadQuizzes();
+  }, []);
+
+  useEffect(() => {
     if (!roomCode || !hostToken) return;
     const interval = setInterval(async () => {
       try {
@@ -108,6 +108,7 @@ export default function Host() {
         setTimer(data.remainingSeconds ? data.remainingSeconds : "-");
         setCurrentQuestion(data.currentQuestionText || "No active question");
         setPlayers(data.players || []);
+        setLoadedQuizTitle(data.quizTitle || "");
       } catch (_) {
       }
     }, 900);
@@ -144,55 +145,37 @@ export default function Host() {
               Copy
             </button>
           </div>
-          <p className="muted">Players joined: {players.length}</p>
+          {qrSrc ? (
+            <div className="qr-box">
+              <img src={qrSrc} alt="Join QR code" />
+              <p className="muted">Scan to join from a phone.</p>
+            </div>
+          ) : null}
 
-          <h2>Question builder</h2>
-          <label className="muted">Question</label>
-          <input
-            value={draft.text}
-            onChange={(event) => setDraft((prev) => ({ ...prev, text: event.target.value }))}
-            placeholder="Ask something fun..."
-          />
-          <div className="two-col">
-            {draft.answers.map((answer, index) => (
-              <input
-                key={`answer-${index}`}
-                value={answer}
-                onChange={(event) => updateAnswer(index, event.target.value)}
-                placeholder={`Answer ${index + 1}`}
-              />
+          <h2>Quiz library</h2>
+          <p className="muted">Choose a saved quiz for this room.</p>
+          <select value={selectedQuizId} onChange={(event) => setSelectedQuizId(event.target.value)}>
+            <option value="">Select a quiz</option>
+            {quizzes.map((quiz) => (
+              <option key={quiz.id} value={quiz.id}>
+                {quiz.title} ({quiz.questionCount})
+              </option>
             ))}
-          </div>
-          <label className="muted">Correct answer</label>
-          <select
-            value={draft.correctIndex}
-            onChange={(event) =>
-              setDraft((prev) => ({ ...prev, correctIndex: Number(event.target.value) }))
-            }
-          >
-            <option value={0}>Answer 1</option>
-            <option value={1}>Answer 2</option>
-            <option value={2}>Answer 3</option>
-            <option value={3}>Answer 4</option>
           </select>
           <div className="button-row">
-            <button className="btn secondary" onClick={addQuestion}>
-              Add Question
+            <button className="btn secondary" onClick={loadQuizzes}>
+              Refresh list
             </button>
-            <button className="btn" onClick={saveQuestions}>
-              Save to Room
+            <button className="btn" onClick={loadSelectedQuiz}>
+              Load quiz to room
             </button>
           </div>
+          <p className="muted">Loaded quiz: {loadedQuizTitle || "None"}</p>
+          <p className="muted">Questions: {loadedQuestionCount || 0}</p>
+          <Link className="btn secondary" to="/library">
+            Create / edit quizzes
+          </Link>
           <p className="muted">{message}</p>
-
-          <div>
-            <h3>Question list</h3>
-            <ol className="muted">
-              {questions.map((question, index) => (
-                <li key={`${question.text}-${index}`}>{question.text}</li>
-              ))}
-            </ol>
-          </div>
         </div>
 
         <div className="card stack">
