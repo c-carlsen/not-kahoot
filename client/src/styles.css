@@ -290,6 +290,54 @@ select {
   }
 }
 
+.player-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.8rem;
+  text-align: center;
+}
+
+.player-metrics h4 {
+  margin: 0 0 0.4rem;
+  color: var(--ey-gray);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.metric-value {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--ey-yellow);
+}
+
+.answer-chart {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.answer-bar {
+  display: grid;
+  grid-template-columns: 120px 1fr 40px;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.answer-bar .bar {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.answer-bar .fill {
+  height: 100%;
+  background: var(--ey-yellow);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
 .top3 li {
   margin: 0.2rem 0;
 }

@@ -12,7 +12,11 @@ export default function Host() {
   const [timer, setTimer] = useState("-");
   const [currentQuestion, setCurrentQuestion] = useState("No active question");
   const [players, setPlayers] = useState([]);
+  const [answeredCount, setAnsweredCount] = useState(0);
+  const [totalPlayers, setTotalPlayers] = useState(0);
+  const [answerCounts, setAnswerCounts] = useState([0, 0, 0, 0]);
   const [message, setMessage] = useState("");
+  const [view, setView] = useState("setup");
 
   const shareLink = useMemo(() => {
     if (!roomCode) return "";
@@ -44,6 +48,7 @@ export default function Host() {
     setLoadedQuizTitle("");
     setLoadedQuestionCount(0);
     setMessage("");
+    setView("setup");
   }
 
   async function loadQuizzes() {
@@ -71,6 +76,7 @@ export default function Host() {
     setLoadedQuizTitle(data.quizTitle || "");
     setLoadedQuestionCount(data.questionCount || 0);
     setMessage("Quiz loaded into room.");
+    setView("setup");
   }
 
   async function startGame() {
@@ -109,6 +115,9 @@ export default function Host() {
         setCurrentQuestion(data.currentQuestionText || "No active question");
         setPlayers(data.players || []);
         setLoadedQuizTitle(data.quizTitle || "");
+        setTotalPlayers(data.totalPlayers || 0);
+        setAnsweredCount(data.answeredCount || 0);
+        setAnswerCounts(data.answerCounts || [0, 0, 0, 0]);
       } catch (_) {
       }
     }, 900);
@@ -127,110 +136,184 @@ export default function Host() {
         </Link>
       </header>
 
-      <section className="grid">
-        <div className="card stack">
-          <div className="section-header">
-            <div>
-              <h2>Room setup</h2>
-              <p className="muted">Create a room to generate a share link.</p>
+      {view === "setup" ? (
+        <section className="grid">
+          <div className="card stack">
+            <div className="section-header">
+              <div>
+                <h2>Room setup</h2>
+                <p className="muted">Create a room to generate a share link.</p>
+              </div>
+              <span className="pill">{roomCode || "Not created"}</span>
             </div>
-            <span className="pill">{roomCode || "Not created"}</span>
-          </div>
-          <button className="btn" onClick={createRoom}>
-            Create Room
-          </button>
-          <div className="share-row">
-            <input value={shareLink} readOnly placeholder="Share link appears here" />
-            <button className="btn secondary" onClick={copyShareLink}>
-              Copy
+            <button className="btn" onClick={createRoom}>
+              Create Room
             </button>
-          </div>
-          {qrSrc ? (
-            <div className="qr-box">
-              <img src={qrSrc} alt="Join QR code" />
-              <p className="muted">Scan to join from a phone.</p>
+            <div className="share-row">
+              <input value={shareLink} readOnly placeholder="Share link appears here" />
+              <button className="btn secondary" onClick={copyShareLink}>
+                Copy
+              </button>
             </div>
-          ) : null}
+            {qrSrc ? (
+              <div className="qr-box">
+                <img src={qrSrc} alt="Join QR code" />
+                <p className="muted">Scan to join from a phone.</p>
+              </div>
+            ) : null}
 
-          <h2>Quiz library</h2>
-          <p className="muted">Choose a saved quiz for this room.</p>
-          <select value={selectedQuizId} onChange={(event) => setSelectedQuizId(event.target.value)}>
-            <option value="">Select a quiz</option>
-            {quizzes.map((quiz) => (
-              <option key={quiz.id} value={quiz.id}>
-                {quiz.title} ({quiz.questionCount})
-              </option>
-            ))}
-          </select>
-          <div className="button-row">
-            <button className="btn secondary" onClick={loadQuizzes}>
-              Refresh list
-            </button>
-            <button className="btn" onClick={loadSelectedQuiz}>
-              Load quiz to room
-            </button>
-          </div>
-          <p className="muted">Loaded quiz: {loadedQuizTitle || "None"}</p>
-          <p className="muted">Questions: {loadedQuestionCount || 0}</p>
-          <Link className="btn secondary" to="/library">
-            Create / edit quizzes
-          </Link>
-          <p className="muted">{message}</p>
-        </div>
-
-        <div className="card stack">
-          <div className="section-header">
-            <div>
-              <h2>Game control</h2>
-              <p className="muted">Start when everyone is in, then move questions.</p>
-            </div>
-            <span className="pill">{status}</span>
-          </div>
-          <div className="button-row">
-            <button className="btn" onClick={startGame}>
-              Start Game
-            </button>
-            <button className="btn secondary" onClick={nextQuestion}>
-              Next Question
-            </button>
-          </div>
-
-          <div className="info-grid">
-            <div className="info-card">
-              <h4>Current question</h4>
-              <p className="muted">{currentQuestion}</p>
-            </div>
-            <div className="info-card">
-              <h4>Time left</h4>
-              <p>
-                <strong>{timer}</strong> seconds
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <h3>Leaderboard</h3>
-            <ol className="leaderboard">
-              {players.map((player, index) => (
-                <li key={`${player.name}-${index}`}>
-                  {index + 1}. {player.name} — {player.score}
-                </li>
+            <h2>Quiz library</h2>
+            <p className="muted">Choose a saved quiz for this room.</p>
+            <select value={selectedQuizId} onChange={(event) => setSelectedQuizId(event.target.value)}>
+              <option value="">Select a quiz</option>
+              {quizzes.map((quiz) => (
+                <option key={quiz.id} value={quiz.id}>
+                  {quiz.title} ({quiz.questionCount})
+                </option>
               ))}
+            </select>
+            <div className="button-row">
+              <button className="btn secondary" onClick={loadQuizzes}>
+                Refresh list
+              </button>
+              <button className="btn" onClick={loadSelectedQuiz}>
+                Load quiz to room
+              </button>
+            </div>
+            <p className="muted">Loaded quiz: {loadedQuizTitle || "None"}</p>
+            <p className="muted">Questions: {loadedQuestionCount || 0}</p>
+            <Link className="btn secondary" to="/library">
+              Create / edit quizzes
+            </Link>
+            <button
+              className="btn"
+              onClick={() => setView("live")}
+              disabled={!roomCode || !loadedQuestionCount}
+            >
+              Go to live host view
+            </button>
+            <p className="muted">{message}</p>
+          </div>
+
+          <div className="card stack">
+            <div className="section-header">
+              <div>
+                <h2>What happens next</h2>
+                <p className="muted">Move into live mode to start the quiz.</p>
+              </div>
+              <span className="pill">Setup</span>
+            </div>
+            <ol className="muted">
+              <li>Create a room.</li>
+              <li>Pick a saved quiz.</li>
+              <li>Go to live host view to start.</li>
             </ol>
           </div>
-
-          <div>
-            <h3>Top 3</h3>
-            <ol className="top3">
-              {top3.map((player, index) => (
-                <li key={`${player.name}-top-${index}`}>
-                  #{index + 1} {player.name} — {player.score}
-                </li>
-              ))}
-            </ol>
+        </section>
+      ) : (
+        <section className="grid">
+          <div className="card stack">
+            <div className="section-header">
+              <div>
+                <h2>Live game</h2>
+                <p className="muted">Players join with the QR code.</p>
+              </div>
+              <span className="pill">{roomCode || "No room"}</span>
+            </div>
+            {qrSrc ? (
+              <div className="qr-box">
+                <img src={qrSrc} alt="Join QR code" />
+                <p className="muted">Scan to join from a phone.</p>
+              </div>
+            ) : null}
+            <div className="player-metrics">
+              <div>
+                <h4>Players joined</h4>
+                <p className="metric-value">{totalPlayers}</p>
+              </div>
+              <div>
+                <h4>Answered</h4>
+                <p className="metric-value">{answeredCount}</p>
+              </div>
+              <div>
+                <h4>Remaining</h4>
+                <p className="metric-value">{Math.max(totalPlayers - answeredCount, 0)}</p>
+              </div>
+            </div>
+            <button className="btn secondary" onClick={() => setView("setup")}>
+              Back to setup
+            </button>
           </div>
-        </div>
-      </section>
+
+          <div className="card stack">
+            <div className="section-header">
+              <div>
+                <h2>Game control</h2>
+                <p className="muted">Start when everyone is in, then move questions.</p>
+              </div>
+              <span className="pill">{status}</span>
+            </div>
+            <div className="button-row">
+              <button className="btn" onClick={startGame}>
+                Start Game
+              </button>
+              <button className="btn secondary" onClick={nextQuestion}>
+                Next Question
+              </button>
+            </div>
+
+            <div className="info-grid">
+              <div className="info-card">
+                <h4>Current question</h4>
+                <p className="muted">{currentQuestion}</p>
+              </div>
+              <div className="info-card">
+                <h4>Time left</h4>
+                <p>
+                  <strong>{timer}</strong> seconds
+                </p>
+              </div>
+            </div>
+
+            <div className="answer-chart">
+              {answerCounts.map((count, index) => (
+                <div key={`bar-${index}`} className="answer-bar">
+                  <span>Answer {index + 1}</span>
+                  <div className="bar">
+                    <div
+                      className="fill"
+                      style={{ width: `${totalPlayers ? Math.round((count / totalPlayers) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <span className="muted">{count}</span>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <h3>Leaderboard</h3>
+              <ol className="leaderboard">
+                {players.map((player, index) => (
+                  <li key={`${player.name}-${index}`}>
+                    {index + 1}. {player.name} — {player.score}
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div>
+              <h3>Top 3</h3>
+              <ol className="top3">
+                {top3.map((player, index) => (
+                  <li key={`${player.name}-top-${index}`}>
+                    #{index + 1} {player.name} — {player.score}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   );
 }

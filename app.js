@@ -425,13 +425,29 @@ app.get("/api/room/:code/state", (req, res) => {
       room.status === "question" && room.currentIndex >= 0
         ? room.questions[room.currentIndex].text
         : "";
+    const totalPlayers = room.players.size;
+    const answerCounts = [0, 0, 0, 0];
+    let answeredCount = 0;
+
+    if (room.currentIndex >= 0) {
+      const answers = room.answersByQuestion.get(room.currentIndex) || new Map();
+      answeredCount = answers.size;
+      answers.forEach((answerIndex) => {
+        if (typeof answerIndex === "number" && answerIndex >= 0 && answerIndex < answerCounts.length) {
+          answerCounts[answerIndex] += 1;
+        }
+      });
+    }
 
     res.json({
       status: room.status,
       remainingSeconds: remainingSeconds(room),
       players: publicPlayers(room),
       currentQuestionText,
-      quizTitle: room.quizTitle
+      quizTitle: room.quizTitle,
+      totalPlayers,
+      answeredCount,
+      answerCounts
     });
     return;
   }
