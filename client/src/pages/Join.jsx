@@ -16,6 +16,10 @@ export default function Join() {
 
   const canJoin = roomCode.trim().length >= 4 && name.trim().length >= 2;
 
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   async function joinGame() {
     setMessage("");
     if (!canJoin) {
@@ -24,22 +28,32 @@ export default function Join() {
     }
 
     setLoading(true);
+    setMessage("Connecting to the room...");
     try {
-      const response = await fetch("/api/join", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roomCode, name })
-      });
-      const data = await response.json();
-      if (!response.ok) {
+      let data = null;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const response = await fetch("/api/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ roomCode, name })
+        });
+        data = await response.json();
+        if (response.ok) break;
+        if (response.status === 404 && attempt < 4) {
+          setMessage("Waking up the room, please wait...");
+          await wait(700);
+          continue;
+        }
         throw new Error(data.error || "Unable to join");
       }
 
-      sessionStorage.setItem(
-        "not-kahoot-player",
-        JSON.stringify({ roomCode, playerId: data.playerId, name })
-      );
-      navigate("/play");
+      if (data?.playerId) {
+        sessionStorage.setItem(
+          "not-kahoot-player",
+          JSON.stringify({ roomCode, playerId: data.playerId, name })
+        );
+        navigate("/play");
+      }
     } catch (error) {
       setMessage(error.message);
     } finally {

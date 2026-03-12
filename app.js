@@ -428,6 +428,18 @@ app.get("/api/room/:code/state", (req, res) => {
     const totalPlayers = room.players.size;
     const answerCounts = [0, 0, 0, 0];
     let answeredCount = 0;
+    const roundLeaders = [...room.players.values()]
+      .map((player) => ({
+        name: player.name,
+        score: player.score,
+        lastPoints: player.lastPoints || 0
+      }))
+      .sort((a, b) => {
+        if (b.lastPoints !== a.lastPoints) return b.lastPoints - a.lastPoints;
+        if (b.score !== a.score) return b.score - a.score;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 5);
 
     if (room.currentIndex >= 0) {
       const answers = room.answersByQuestion.get(room.currentIndex) || new Map();
@@ -447,7 +459,8 @@ app.get("/api/room/:code/state", (req, res) => {
       quizTitle: room.quizTitle,
       totalPlayers,
       answeredCount,
-      answerCounts
+      answerCounts,
+      roundLeaders
     });
     return;
   }
@@ -467,8 +480,13 @@ app.get("/api/room/:code/state", (req, res) => {
       currentQuestion: null,
       playerLastPoints: player.lastPoints,
       playerLastCorrect: player.lastCorrect,
-      playerLastAnswerIndex: player.lastAnswerIndex
+      playerLastAnswerIndex: player.lastAnswerIndex,
+      totalPlayers: room.players.size,
+      playerRank: 0
     };
+
+    const rankIndex = sortedPlayers(room).findIndex((row) => row.id === player.id);
+    payload.playerRank = rankIndex >= 0 ? rankIndex + 1 : 0;
 
     if (room.status === "question" && room.currentIndex >= 0) {
       const q = room.questions[room.currentIndex];

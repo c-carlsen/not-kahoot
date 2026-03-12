@@ -245,6 +245,10 @@ select {
   gap: 0.55rem;
 }
 
+.answer-list {
+  gap: 0.8rem;
+}
+
 .answer-btn {
   width: 100%;
   text-align: left;
@@ -252,6 +256,9 @@ select {
   color: var(--ey-white);
   padding: 0.85rem 1rem;
   font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .answer-btn:disabled {
@@ -265,6 +272,44 @@ select {
 
 .answer-btn.wrong {
   background: var(--warn);
+}
+
+.answer-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.locked-answer {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.rank-card {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rank-value {
+  margin: 0.4rem 0 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--ey-yellow);
 }
 
 .points-pill {

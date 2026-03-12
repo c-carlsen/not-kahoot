@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 const EMPTY_PLAYER = {
@@ -6,6 +6,8 @@ const EMPTY_PLAYER = {
   playerId: "",
   name: ""
 };
+
+const ANSWER_SYMBOLS = ["▲", "■", "●", "◆"];
 
 function loadPlayer() {
   try {
@@ -19,9 +21,8 @@ function loadPlayer() {
 export default function Play() {
   const [player, setPlayer] = useState(loadPlayer);
   const [status, setStatus] = useState("waiting");
-  const [remaining, setRemaining] = useState("-");
+  const [remaining, setRemaining] = useState(null);
   const [question, setQuestion] = useState(null);
-  const [players, setPlayers] = useState([]);
   const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [answered, setAnswered] = useState(false);
@@ -29,8 +30,9 @@ export default function Play() {
   const [lastPoints, setLastPoints] = useState(0);
   const [lastCorrect, setLastCorrect] = useState(null);
   const [lastAnswerIndex, setLastAnswerIndex] = useState(null);
-
-  const top3 = useMemo(() => players.slice(0, 3), [players]);
+  const [selectedAnswerIndex, setSelectedAnswerIndex] = useState(null);
+  const [rank, setRank] = useState(0);
+  const [totalPlayers, setTotalPlayers] = useState(0);
 
   useEffect(() => {
     if (!player.playerId) return;
@@ -43,17 +45,19 @@ export default function Play() {
         if (!response.ok) throw new Error(data.error || "Failed to load state");
 
         setStatus(data.status);
-        setRemaining(data.remainingSeconds ? data.remainingSeconds : "-");
-        setPlayers(data.players || []);
+        setRemaining(data.status === "question" ? data.remainingSeconds : null);
         setScore(data.playerScore || 0);
         setLastPoints(data.playerLastPoints || 0);
         setLastCorrect(data.playerLastCorrect);
         setLastAnswerIndex(data.playerLastAnswerIndex);
+        setRank(data.playerRank || 0);
+        setTotalPlayers(data.totalPlayers || 0);
 
         if (data.currentQuestion && data.currentQuestion.index !== lastQuestionIndex) {
           setAnswered(false);
           setFeedback("");
           setLastQuestionIndex(data.currentQuestion.index);
+          setSelectedAnswerIndex(null);
         }
         setQuestion(data.currentQuestion || null);
       } catch (_) {
@@ -78,6 +82,7 @@ export default function Play() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Unable to submit");
       setAnswered(true);
+      setSelectedAnswerIndex(answerIndex);
       setFeedback("Answer locked");
     } catch (error) {
       setFeedback(error.message);
@@ -123,31 +128,40 @@ export default function Play() {
           </div>
           <div className="info-card">
             <h4>Time left</h4>
-            <p>
-              <strong>{remaining}</strong> seconds
-            </p>
+            <p>{remaining === null ? "Waiting" : `${remaining} seconds`}</p>
           </div>
         </div>
 
-        <div className="answer-list">
-          {question?.answers?.map((answer, index) => {
-            const isReveal = status === "reveal" || status === "leaderboard";
-            const isCorrect = isReveal && question?.correctIndex === index;
-            const isWrong =
-              isReveal && lastAnswerIndex === index && question?.correctIndex !== index;
+        {answered && status === "question" ? (
+          <div className="locked-answer">
+            <span className="answer-symbol">{ANSWER_SYMBOLS[selectedAnswerIndex] || "?"}</span>
+            <div>
+              <p className="muted">Answer locked</p>
+              <h3>{question?.answers?.[selectedAnswerIndex] || ""}</h3>
+            </div>
+          </div>
+        ) : (
+          <div className="answer-list">
+            {question?.answers?.map((answer, index) => {
+              const isReveal = status === "reveal" || status === "leaderboard";
+              const isCorrect = isReveal && question?.correctIndex === index;
+              const isWrong =
+                isReveal && lastAnswerIndex === index && question?.correctIndex !== index;
 
-            return (
-              <button
-                key={`${answer}-${index}`}
-                className={`answer-btn${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`}
-                onClick={() => submitAnswer(index)}
-                disabled={answered || status !== "question"}
-              >
-                {answer}
-              </button>
-            );
-          })}
-        </div>
+              return (
+                <button
+                  key={`${answer}-${index}`}
+                  className={`answer-btn${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`}
+                  onClick={() => submitAnswer(index)}
+                  disabled={answered || status !== "question"}
+                >
+                  <span className="answer-symbol">{ANSWER_SYMBOLS[index]}</span>
+                  <span>{answer}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <p className="muted">{feedback}</p>
         {status === "reveal" || status === "leaderboard" ? (
           <p className="points-pill">
@@ -155,23 +169,13 @@ export default function Play() {
           </p>
         ) : null}
 
-        <h3>Leaderboard</h3>
-        <ol className="leaderboard">
-          {players.map((playerRow, index) => (
-            <li key={`${playerRow.name}-${index}`}>
-              {index + 1}. {playerRow.name} — {playerRow.score}
-            </li>
-          ))}
-        </ol>
-
-        <h3>Top 3</h3>
-        <ol className="top3">
-          {top3.map((playerRow, index) => (
-            <li key={`${playerRow.name}-top-${index}`}>
-              #{index + 1} {playerRow.name} — {playerRow.score}
-            </li>
-          ))}
-        </ol>
+        <div className="rank-card">
+          <h3>Your rank</h3>
+          <p className="rank-value">
+            {rank ? `#${rank}` : "—"}
+            {totalPlayers ? ` / ${totalPlayers}` : ""}
+          </p>
+        </div>
       </section>
     </main>
   );

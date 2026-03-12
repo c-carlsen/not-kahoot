@@ -7,6 +7,62 @@ const EMPTY_QUESTION = {
   correctIndex: 0
 };
 
+const SAMPLE_QUIZ = {
+  title: "Technology Basics",
+  questions: [
+    {
+      text: "What does CPU stand for?",
+      answers: ["Central Processing Unit", "Computer Power Unit", "Core Processing Utility", "Central Program User"],
+      correctIndex: 0
+    },
+    {
+      text: "Which protocol is used to load web pages?",
+      answers: ["HTTP", "FTP", "SMTP", "SSH"],
+      correctIndex: 0
+    },
+    {
+      text: "What does HTML stand for?",
+      answers: ["HyperText Markup Language", "High Transfer Markup Language", "Hyperlink Text Module", "Host Text Markup Link"],
+      correctIndex: 0
+    },
+    {
+      text: "Which storage type uses flash memory?",
+      answers: ["SSD", "HDD", "DVD", "Floppy disk"],
+      correctIndex: 0
+    },
+    {
+      text: "What is the default port for HTTPS?",
+      answers: ["443", "80", "22", "21"],
+      correctIndex: 0
+    },
+    {
+      text: "What does Wi-Fi stand for (commonly)?",
+      answers: ["Wireless Fidelity", "Wide Fiber", "Wireless File", "Web Finder"],
+      correctIndex: 0
+    },
+    {
+      text: "Which device routes traffic between networks?",
+      answers: ["Router", "Monitor", "Keyboard", "Printer"],
+      correctIndex: 0
+    },
+    {
+      text: "What is two-factor authentication?",
+      answers: ["Using two verification methods", "Using two passwords", "Logging in twice", "Sharing a password"],
+      correctIndex: 0
+    },
+    {
+      text: "Which company created React?",
+      answers: ["Meta (Facebook)", "Google", "Microsoft", "Amazon"],
+      correctIndex: 0
+    },
+    {
+      text: "What does API stand for?",
+      answers: ["Application Programming Interface", "Advanced Program Integration", "Applied Protocol Interface", "Application Process Input"],
+      correctIndex: 0
+    }
+  ]
+};
+
 export default function Library() {
   const [title, setTitle] = useState("");
   const [draft, setDraft] = useState(EMPTY_QUESTION);
@@ -77,6 +133,16 @@ export default function Library() {
     }
   }
 
+  async function addSampleQuiz() {
+    try {
+      await api("/api/quizzes", "POST", SAMPLE_QUIZ);
+      setMessage("Sample quiz added to the library.");
+      loadQuizzes();
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
   return (
     <main className="app">
       <header className="topbar">
@@ -128,6 +194,9 @@ export default function Library() {
             </button>
             <button className="btn" onClick={saveQuiz}>
               Save Quiz
+            </button>
+            <button className="btn secondary" onClick={addSampleQuiz}>
+              Add sample quiz (10)
             </button>
           </div>
           <p className="muted">{message}</p>

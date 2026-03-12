@@ -9,12 +9,13 @@ export default function Host() {
   const [loadedQuizTitle, setLoadedQuizTitle] = useState("");
   const [loadedQuestionCount, setLoadedQuestionCount] = useState(0);
   const [status, setStatus] = useState("Lobby");
-  const [timer, setTimer] = useState("-");
+  const [timer, setTimer] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState("No active question");
   const [players, setPlayers] = useState([]);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [totalPlayers, setTotalPlayers] = useState(0);
   const [answerCounts, setAnswerCounts] = useState([0, 0, 0, 0]);
+  const [roundLeaders, setRoundLeaders] = useState([]);
   const [message, setMessage] = useState("");
   const [view, setView] = useState("setup");
 
@@ -27,8 +28,6 @@ export default function Host() {
     if (!shareLink) return "";
     return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareLink)}`;
   }, [shareLink]);
-
-  const top3 = useMemo(() => players.slice(0, 3), [players]);
 
   async function api(path, method = "GET", body = null) {
     const response = await fetch(path, {
@@ -111,16 +110,17 @@ export default function Host() {
           `/api/room/${roomCode}/state?hostToken=${encodeURIComponent(hostToken)}&role=host`
         );
         setStatus(data.status === "question" ? "Live" : data.status);
-        setTimer(data.remainingSeconds ? data.remainingSeconds : "-");
+        setTimer(data.status === "question" ? data.remainingSeconds : null);
         setCurrentQuestion(data.currentQuestionText || "No active question");
         setPlayers(data.players || []);
         setLoadedQuizTitle(data.quizTitle || "");
         setTotalPlayers(data.totalPlayers || 0);
         setAnsweredCount(data.answeredCount || 0);
         setAnswerCounts(data.answerCounts || [0, 0, 0, 0]);
+        setRoundLeaders(data.roundLeaders || []);
       } catch (_) {
       }
-    }, 900);
+    }, 700);
 
     return () => clearInterval(interval);
   }, [roomCode, hostToken]);
@@ -269,9 +269,7 @@ export default function Host() {
               </div>
               <div className="info-card">
                 <h4>Time left</h4>
-                <p>
-                  <strong>{timer}</strong> seconds
-                </p>
+                <p>{timer === null ? "Waiting" : `${timer} seconds`}</p>
               </div>
             </div>
 
@@ -294,19 +292,17 @@ export default function Host() {
               <h3>Leaderboard</h3>
               <ol className="leaderboard">
                 {players.map((player, index) => (
-                  <li key={`${player.name}-${index}`}>
-                    {index + 1}. {player.name} — {player.score}
-                  </li>
+                  <li key={`${player.name}-${index}`}>{player.name} — {player.score}</li>
                 ))}
               </ol>
             </div>
 
             <div>
-              <h3>Top 3</h3>
+              <h3>Top 5 this round</h3>
               <ol className="top3">
-                {top3.map((player, index) => (
-                  <li key={`${player.name}-top-${index}`}>
-                    #{index + 1} {player.name} — {player.score}
+                {roundLeaders.map((player, index) => (
+                  <li key={`${player.name}-round-${index}`}>
+                    {player.name} — +{player.lastPoints} ({player.score})
                   </li>
                 ))}
               </ol>
