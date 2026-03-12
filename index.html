@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOT KAHOOT</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app app-landing">
+    <header class="topbar">
+      <span class="ey-tag">EY</span>
+      <h1>NOT KAHOOT</h1>
+      <p>Run live quizzes with your own questions and real-time scoring.</p>
+    </header>
+
+    <section class="landing-grid">
+      <div class="card stack">
+        <h2>Host a game</h2>
+        <p class="muted">Create questions, generate a room code, and run the quiz.</p>
+        <a class="btn" href="/host.html">Start Hosting</a>
+      </div>
+
+      <div class="card stack">
+        <h2>Join as a player</h2>
+        <p class="muted">Enter the room code from the host and your name.</p>
+        <input id="room-code" maxlength="6" placeholder="Room code" />
+        <a id="join-link" class="btn secondary" href="/player.html">Join Game</a>
+      </div>
+    </section>
+
+    <section class="card steps">
+      <h3>How it works</h3>
+      <ol>
+        <li>Host creates a room and builds questions.</li>
+        <li>Players join from their phones using the room code.</li>
+        <li>Answer fast, track scores, and celebrate the top 3.</li>
+      </ol>
+    </section>
+  </main>
+
+  <script>
+    const roomCodeInput = document.getElementById("room-code");
+    const joinLink = document.getElementById("join-link");
+
+    roomCodeInput.addEventListener("input", () => {
+      const code = roomCodeInput.value.trim().toUpperCase();
+      joinLink.href = code ? `/player.html?room=${encodeURIComponent(code)}` : "/player.html";
+    });
+  </script>
+</body>
+</html>

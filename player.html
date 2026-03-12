@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOT KAHOOT | Player</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app app-landing">
+    <header class="topbar">
+      <span class="ey-tag">EY</span>
+      <h1>Join the Game</h1>
+      <p>Enter the room code shared by your host.</p>
+      <a class="btn secondary" href="/index.html">Back</a>
+    </header>
+
+    <section id="join-card" class="card stack">
+      <label class="muted">Room code</label>
+      <input id="room-input" maxlength="6" placeholder="ABC123" />
+      <label class="muted">Name</label>
+      <input id="name-input" placeholder="Your name" />
+      <button id="join-btn">Join Game</button>
+      <p id="join-message" class="muted"></p>
+    </section>
+
+    <section id="play-card" class="card stack hidden">
+      <div class="meta">
+        <span id="player-name" class="pill"></span>
+        <span id="player-score" class="pill">Score: 0</span>
+      </div>
+      <p id="game-status" class="muted">Waiting for host...</p>
+      <div class="info-grid">
+        <div class="info-card">
+          <h4>Question</h4>
+          <h2 id="question-text"></h2>
+        </div>
+        <div class="info-card">
+          <h4>Time left</h4>
+          <p><strong id="timer">-</strong> seconds</p>
+        </div>
+      </div>
+      <div id="answers" class="answer-list"></div>
+      <p id="feedback" class="muted"></p>
+      <h3>Leaderboard</h3>
+      <ol id="leaderboard" class="leaderboard"></ol>
+      <h3>Top 3</h3>
+      <ol id="top3" class="top3"></ol>
+    </section>
+  </main>
+
+  <script src="player.js"></script>
+</body>
+</html>

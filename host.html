@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NOT KAHOOT | Host</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <span class="ey-tag">EY</span>
+      <h1>Host Console</h1>
+      <p>Build your quiz, share the room code, and control the flow.</p>
+      <a class="btn secondary" href="/index.html">Back</a>
+    </header>
+
+    <section class="grid">
+      <div class="card stack">
+        <div class="section-header">
+          <div>
+            <h2>Room setup</h2>
+            <p class="muted">Create a room to generate a share link.</p>
+          </div>
+          <span id="room-pill" class="pill">Not created</span>
+        </div>
+        <button id="create-room-btn">Create Room</button>
+        <div class="share-row">
+          <input id="share-link" readonly placeholder="Share link appears here" />
+          <button id="copy-link-btn" class="secondary">Copy</button>
+        </div>
+        <p id="player-count" class="muted">Players joined: 0</p>
+
+        <h2>Question builder</h2>
+        <label class="muted">Question</label>
+        <textarea id="question-text" placeholder="Ask something fun..."></textarea>
+        <div class="two-col">
+          <input id="ans-1" placeholder="Answer 1" />
+          <input id="ans-2" placeholder="Answer 2" />
+          <input id="ans-3" placeholder="Answer 3" />
+          <input id="ans-4" placeholder="Answer 4" />
+        </div>
+        <label class="muted">Correct answer</label>
+        <select id="correct-index">
+          <option value="0">Answer 1</option>
+          <option value="1">Answer 2</option>
+          <option value="2">Answer 3</option>
+          <option value="3">Answer 4</option>
+        </select>
+        <div class="button-row">
+          <button id="add-question-btn" class="secondary">Add Question</button>
+          <button id="save-questions-btn">Save to Room</button>
+        </div>
+
+        <div>
+          <h3>Question list</h3>
+          <ol id="question-list" class="muted"></ol>
+        </div>
+      </div>
+
+      <div class="card stack">
+        <div class="section-header">
+          <div>
+            <h2>Game control</h2>
+            <p class="muted">Start when everyone is in, then move questions.</p>
+          </div>
+          <span id="status-text" class="pill">Lobby</span>
+        </div>
+        <div class="button-row">
+          <button id="start-game-btn">Start Game</button>
+          <button id="next-question-btn" class="secondary">Next Question</button>
+        </div>
+
+        <div class="info-grid">
+          <div class="info-card">
+            <h4>Current question</h4>
+            <p id="current-question" class="muted">No active question</p>
+          </div>
+          <div class="info-card">
+            <h4>Time left</h4>
+            <p><strong id="timer">-</strong> seconds</p>
+          </div>
+        </div>
+
+        <div>
+          <h3>Leaderboard</h3>
+          <ol id="leaderboard" class="leaderboard"></ol>
+        </div>
+
+        <div>
+          <h3>Top 3</h3>
+          <ol id="top3" class="top3"></ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="host.js"></script>
+</body>
+</html>
