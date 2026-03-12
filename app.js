@@ -1,9 +1,11 @@
 const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
+const fs = require("fs");
 
 const app = express();
 const baseDir = path.join(__dirname);
+const clientDist = path.join(baseDir, "client", "dist");
 
 // TODO: Put ADMIN_KEY in your .env file to protect future admin routes.
 const adminKey = process.env.ADMIN_KEY || "";
@@ -13,6 +15,10 @@ const QUESTION_DURATION_SECONDS = Number(process.env.QUESTION_DURATION_SECONDS |
 const rooms = new Map();
 
 app.use(express.json());
+
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+}
 app.use(express.static(baseDir));
 
 function makeRoomCode() {
@@ -297,6 +303,20 @@ app.get("/api/room/:code/state", (req, res) => {
 
 app.get("/health", (req, res) => {
   res.json({ ok: true });
+});
+
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api") || req.path.includes(".")) {
+    next();
+    return;
+  }
+
+  if (fs.existsSync(clientDist)) {
+    res.sendFile(path.join(clientDist, "index.html"));
+    return;
+  }
+
+  res.sendFile(path.join(baseDir, "index.html"));
 });
 
 module.exports = { app, adminKey };
