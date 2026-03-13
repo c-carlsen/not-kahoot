@@ -8,14 +8,13 @@ export default function Host() {
   const [selectedQuizId, setSelectedQuizId] = useState("");
   const [loadedQuizTitle, setLoadedQuizTitle] = useState("");
   const [loadedQuestionCount, setLoadedQuestionCount] = useState(0);
-  const [status, setStatus] = useState("Lobby");
+  const [status, setStatus] = useState("lobby");
   const [timer, setTimer] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState("No active question");
+  const [currentAnswers, setCurrentAnswers] = useState([]);
   const [players, setPlayers] = useState([]);
   const [answeredCount, setAnsweredCount] = useState(0);
   const [totalPlayers, setTotalPlayers] = useState(0);
-  const [answerCounts, setAnswerCounts] = useState([0, 0, 0, 0]);
-  const [roundLeaders, setRoundLeaders] = useState([]);
   const [message, setMessage] = useState("");
   const [view, setView] = useState("setup");
 
@@ -88,25 +87,9 @@ export default function Host() {
     await api(`/api/room/${roomCode}/next`, "POST", { hostToken });
   }
 
-  async function setAutoStart(enabled) {
-    if (!roomCode) return;
-    try {
-      await api(`/api/room/${roomCode}/auto-start`, "POST", { hostToken, enabled });
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
   async function enterLiveView() {
     if (!roomCode || !loadedQuestionCount) return;
-    await setAutoStart(true);
     setView("live");
-    setMessage("Auto-start enabled. First player to join will start the quiz.");
-  }
-
-  async function exitLiveView() {
-    await setAutoStart(false);
-    setView("setup");
   }
 
   async function copyShareLink() {
@@ -130,15 +113,14 @@ export default function Host() {
         const data = await api(
           `/api/room/${roomCode}/state?hostToken=${encodeURIComponent(hostToken)}&role=host`
         );
-        setStatus(data.status === "question" ? "Live" : data.status);
+        setStatus(data.status || "lobby");
         setTimer(data.status === "question" ? data.remainingSeconds : null);
         setCurrentQuestion(data.currentQuestionText || "No active question");
+        setCurrentAnswers(data.currentQuestionAnswers || []);
         setPlayers(data.players || []);
         setLoadedQuizTitle(data.quizTitle || "");
         setTotalPlayers(data.totalPlayers || 0);
         setAnsweredCount(data.answeredCount || 0);
-        setAnswerCounts(data.answerCounts || [0, 0, 0, 0]);
-        setRoundLeaders(data.roundLeaders || []);
       } catch (_) {
       }
     }, 700);
@@ -262,7 +244,15 @@ export default function Host() {
                 <p className="metric-value">{Math.max(totalPlayers - answeredCount, 0)}</p>
               </div>
             </div>
-            <button className="btn secondary" onClick={exitLiveView}>
+            <div>
+              <h3>Lobby</h3>
+              <ol className="leaderboard">
+                {players.map((player, index) => (
+                  <li key={`${player.name}-${index}`}>{player.name}</li>
+                ))}
+              </ol>
+            </div>
+            <button className="btn secondary" onClick={() => setView("setup")}>
               Back to setup
             </button>
           </div>
@@ -270,64 +260,44 @@ export default function Host() {
           <div className="card stack">
             <div className="section-header">
               <div>
-                <h2>Game control</h2>
-                <p className="muted">Start when everyone is in, then move questions.</p>
+                <h2>Live quiz</h2>
+                <p className="muted">Show this screen to the class.</p>
               </div>
-              <span className="pill">{status}</span>
+              <span className="pill">{status === "question" ? "Live" : status}</span>
             </div>
             <div className="button-row">
-              <button className="btn" onClick={startGame}>
+              <button className="btn" onClick={startGame} disabled={status !== "lobby"}>
                 Start Game
               </button>
-              <button className="btn secondary" onClick={nextQuestion}>
+              <button className="btn secondary" onClick={nextQuestion} disabled={status === "lobby"}>
                 Next Question
               </button>
             </div>
-
             <div className="info-grid">
               <div className="info-card">
-                <h4>Current question</h4>
-                <p className="muted">{currentQuestion}</p>
+                <h4>Question</h4>
+                <h2>{status === "question" ? currentQuestion : "Waiting to start"}</h2>
+              </div>
+              <div className="info-card">
+                <h4>Answered</h4>
+                <p className="metric-value">{answeredCount} / {totalPlayers}</p>
               </div>
               <div className="info-card">
                 <h4>Time left</h4>
                 <p>{timer === null ? "Waiting" : `${timer} seconds`}</p>
               </div>
             </div>
-
-            <div className="answer-chart">
-              {answerCounts.map((count, index) => (
-                <div key={`bar-${index}`} className="answer-bar">
-                  <span>Answer {index + 1}</span>
-                  <div className="bar">
-                    <div
-                      className="fill"
-                      style={{ width: `${totalPlayers ? Math.round((count / totalPlayers) * 100) : 0}%` }}
-                    />
-                  </div>
-                  <span className="muted">{count}</span>
-                </div>
+            <div className="answer-list">
+              {currentAnswers.map((answer, index) => (
+                <button
+                  key={`${answer}-${index}`}
+                  className={`answer-btn choice-${index}`}
+                  disabled
+                >
+                  <span className="answer-symbol">{["▲", "■", "●", "◆"][index]}</span>
+                  <span>{answer}</span>
+                </button>
               ))}
-            </div>
-
-            <div>
-              <h3>Leaderboard</h3>
-              <ol className="leaderboard">
-                {players.map((player, index) => (
-                  <li key={`${player.name}-${index}`}>{player.name} — {player.score}</li>
-                ))}
-              </ol>
-            </div>
-
-            <div>
-              <h3>Top 5 this round</h3>
-              <ol className="top3">
-                {roundLeaders.map((player, index) => (
-                  <li key={`${player.name}-round-${index}`}>
-                    {player.name} — +{player.lastPoints} ({player.score})
-                  </li>
-                ))}
-              </ol>
             </div>
           </div>
         </section>

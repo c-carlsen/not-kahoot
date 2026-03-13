@@ -6,6 +6,10 @@
   --ey-white: #f8f8fa;
   --ok: #1e8f5b;
   --warn: #bf3342;
+  --choice-red: #e0534e;
+  --choice-blue: #3a7bd5;
+  --choice-yellow: #f2c94c;
+  --choice-green: #29b16a;
 }
 
 * {
@@ -260,6 +264,23 @@ select {
   align-items: center;
   gap: 0.75rem;
   box-shadow: none;
+}
+
+.answer-btn.choice-0 {
+  background: var(--choice-red);
+}
+
+.answer-btn.choice-1 {
+  background: var(--choice-blue);
+}
+
+.answer-btn.choice-2 {
+  background: var(--choice-yellow);
+  color: #1d1d1d;
+}
+
+.answer-btn.choice-3 {
+  background: var(--choice-green);
 }
 
 .answer-btn:disabled {

@@ -18,7 +18,6 @@ const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, s
 
 const QUESTION_DURATION_SECONDS = Number(process.env.QUESTION_DURATION_SECONDS || 20);
 const REVEAL_DURATION_SECONDS = Number(process.env.REVEAL_DURATION_SECONDS || 6);
-const LEADERBOARD_DURATION_SECONDS = Number(process.env.LEADERBOARD_DURATION_SECONDS || 6);
 
 const rooms = new Map();
 
@@ -63,7 +62,6 @@ function ensureRevealAdvance(room) {
   const elapsed = (getNow() - room.revealStart) / 1000;
   if (elapsed >= REVEAL_DURATION_SECONDS) {
     room.status = "leaderboard";
-    room.leaderboardStart = getNow();
   }
 }
 
@@ -72,7 +70,6 @@ function startQuestion(room, index) {
   room.currentIndex = index;
   room.questionStart = getNow();
   room.revealStart = 0;
-  room.leaderboardStart = 0;
   resetPlayerRound(room);
   room.answersByQuestion.set(index, new Map());
 }
@@ -85,14 +82,6 @@ function advanceToNextQuestion(room) {
     return;
   }
   startQuestion(room, nextIndex);
-}
-
-function ensureLeaderboardAdvance(room) {
-  if (room.status !== "leaderboard") return;
-  const elapsed = (getNow() - room.leaderboardStart) / 1000;
-  if (elapsed >= LEADERBOARD_DURATION_SECONDS) {
-    advanceToNextQuestion(room);
-  }
 }
 
 function resetPlayerRound(room) {
@@ -132,12 +121,10 @@ app.post("/api/create-room", (req, res) => {
     currentIndex: -1,
     questionStart: 0,
     revealStart: 0,
-    leaderboardStart: 0,
     players: new Map(),
     answersByQuestion: new Map(),
     quizId: null,
-    quizTitle: "",
-    autoStart: false
+    quizTitle: ""
   });
 
   res.json({ roomCode, hostToken });
@@ -166,9 +153,6 @@ app.post("/api/join", (req, res) => {
     lastCorrect: null,
     lastAnswerIndex: null
   });
-  if (room.autoStart && room.status === "lobby" && room.questions.length > 0) {
-    startQuestion(room, 0);
-  }
   res.json({ playerId });
 });
 
@@ -367,22 +351,6 @@ app.post("/api/room/:code/next", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/room/:code/auto-start", (req, res) => {
-  const roomCode = req.params.code.toUpperCase();
-  const { hostToken, enabled } = req.body || {};
-  const room = rooms.get(roomCode);
-  if (!room) {
-    res.status(404).json({ error: "Room not found" });
-    return;
-  }
-  if (room.hostToken !== hostToken) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  room.autoStart = Boolean(enabled);
-  res.json({ ok: true, autoStart: room.autoStart });
-});
-
 app.post("/api/answer", (req, res) => {
   const roomCode = String(req.body.roomCode || "").toUpperCase();
   const playerId = String(req.body.playerId || "");
@@ -450,7 +418,6 @@ app.get("/api/room/:code/state", (req, res) => {
 
   ensureQuestionAdvance(room);
   ensureRevealAdvance(room);
-  ensureLeaderboardAdvance(room);
 
   if (role === "host") {
     if (room.hostToken !== hostToken) {
@@ -461,30 +428,16 @@ app.get("/api/room/:code/state", (req, res) => {
       room.status === "question" && room.currentIndex >= 0
         ? room.questions[room.currentIndex].text
         : "";
+    const currentQuestionAnswers =
+      room.status === "question" && room.currentIndex >= 0
+        ? room.questions[room.currentIndex].answers
+        : [];
     const totalPlayers = room.players.size;
-    const answerCounts = [0, 0, 0, 0];
     let answeredCount = 0;
-    const roundLeaders = [...room.players.values()]
-      .map((player) => ({
-        name: player.name,
-        score: player.score,
-        lastPoints: player.lastPoints || 0
-      }))
-      .sort((a, b) => {
-        if (b.lastPoints !== a.lastPoints) return b.lastPoints - a.lastPoints;
-        if (b.score !== a.score) return b.score - a.score;
-        return a.name.localeCompare(b.name);
-      })
-      .slice(0, 5);
 
     if (room.currentIndex >= 0) {
       const answers = room.answersByQuestion.get(room.currentIndex) || new Map();
       answeredCount = answers.size;
-      answers.forEach((answerIndex) => {
-        if (typeof answerIndex === "number" && answerIndex >= 0 && answerIndex < answerCounts.length) {
-          answerCounts[answerIndex] += 1;
-        }
-      });
     }
 
     res.json({
@@ -492,11 +445,10 @@ app.get("/api/room/:code/state", (req, res) => {
       remainingSeconds: remainingSeconds(room),
       players: publicPlayers(room),
       currentQuestionText,
+      currentQuestionAnswers,
       quizTitle: room.quizTitle,
       totalPlayers,
-      answeredCount,
-      answerCounts,
-      roundLeaders
+      answeredCount
     });
     return;
   }

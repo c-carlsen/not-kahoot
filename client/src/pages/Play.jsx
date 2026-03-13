@@ -23,7 +23,6 @@ export default function Play() {
   const [status, setStatus] = useState("waiting");
   const [remaining, setRemaining] = useState(null);
   const [question, setQuestion] = useState(null);
-  const [score, setScore] = useState(0);
   const [feedback, setFeedback] = useState("");
   const [answered, setAnswered] = useState(false);
   const [lastQuestionIndex, setLastQuestionIndex] = useState(-1);
@@ -31,8 +30,6 @@ export default function Play() {
   const [lastCorrect, setLastCorrect] = useState(null);
   const [lastAnswerIndex, setLastAnswerIndex] = useState(null);
   const [selectedAnswerIndex, setSelectedAnswerIndex] = useState(null);
-  const [rank, setRank] = useState(0);
-  const [totalPlayers, setTotalPlayers] = useState(0);
 
   useEffect(() => {
     if (!player.playerId) return;
@@ -46,12 +43,9 @@ export default function Play() {
 
         setStatus(data.status);
         setRemaining(data.status === "question" ? data.remainingSeconds : null);
-        setScore(data.playerScore || 0);
         setLastPoints(data.playerLastPoints || 0);
         setLastCorrect(data.playerLastCorrect);
         setLastAnswerIndex(data.playerLastAnswerIndex);
-        setRank(data.playerRank || 0);
-        setTotalPlayers(data.totalPlayers || 0);
 
         if (data.currentQuestion && data.currentQuestion.index !== lastQuestionIndex) {
           setAnswered(false);
@@ -115,30 +109,16 @@ export default function Play() {
       <section className="card stack">
         <div className="meta">
           <span className="pill">{player.name}</span>
-          <span className="pill">Score: {score}</span>
         </div>
         <p className="muted">
           Status: {status === "question" ? "Live" : status === "reveal" ? "Reveal" : status}
         </p>
-
-        <div className="info-grid">
-          <div className="info-card">
-            <h4>Question</h4>
-            <h2>{question ? question.text : "Waiting for host"}</h2>
-          </div>
-          <div className="info-card">
-            <h4>Time left</h4>
-            <p>{remaining === null ? "Waiting" : `${remaining} seconds`}</p>
-          </div>
-        </div>
+        <p className="muted">{remaining === null ? "Waiting for the teacher" : `${remaining} seconds left`}</p>
 
         {answered && status === "question" ? (
           <div className="locked-answer">
             <span className="answer-symbol">{ANSWER_SYMBOLS[selectedAnswerIndex] || "?"}</span>
-            <div>
-              <p className="muted">Answer locked</p>
-              <h3>{question?.answers?.[selectedAnswerIndex] || ""}</h3>
-            </div>
+            <p className="muted">Answer locked</p>
           </div>
         ) : (
           <div className="answer-list">
@@ -151,31 +131,17 @@ export default function Play() {
               return (
                 <button
                   key={`${answer}-${index}`}
-                  className={`answer-btn${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`}
+                  className={`answer-btn choice-${index}${isCorrect ? " correct" : ""}${isWrong ? " wrong" : ""}`}
                   onClick={() => submitAnswer(index)}
                   disabled={answered || status !== "question"}
                 >
                   <span className="answer-symbol">{ANSWER_SYMBOLS[index]}</span>
-                  <span>{answer}</span>
                 </button>
               );
             })}
           </div>
         )}
         <p className="muted">{feedback}</p>
-        {status === "reveal" || status === "leaderboard" ? (
-          <p className="points-pill">
-            {lastCorrect ? `+${lastPoints} points!` : "No points this round"}
-          </p>
-        ) : null}
-
-        <div className="rank-card">
-          <h3>Your rank</h3>
-          <p className="rank-value">
-            {rank ? `#${rank}` : "—"}
-            {totalPlayers ? ` / ${totalPlayers}` : ""}
-          </p>
-        </div>
       </section>
     </main>
   );
