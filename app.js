@@ -18,6 +18,7 @@ const supabase = supabaseUrl && supabaseServiceKey ? createClient(supabaseUrl, s
 
 const QUESTION_DURATION_SECONDS = Number(process.env.QUESTION_DURATION_SECONDS || 20);
 const REVEAL_DURATION_SECONDS = Number(process.env.REVEAL_DURATION_SECONDS || 6);
+const LEADERBOARD_DURATION_SECONDS = Number(process.env.LEADERBOARD_DURATION_SECONDS || 6);
 
 const rooms = new Map();
 
@@ -62,6 +63,35 @@ function ensureRevealAdvance(room) {
   const elapsed = (getNow() - room.revealStart) / 1000;
   if (elapsed >= REVEAL_DURATION_SECONDS) {
     room.status = "leaderboard";
+    room.leaderboardStart = getNow();
+  }
+}
+
+function startQuestion(room, index) {
+  room.status = "question";
+  room.currentIndex = index;
+  room.questionStart = getNow();
+  room.revealStart = 0;
+  room.leaderboardStart = 0;
+  resetPlayerRound(room);
+  room.answersByQuestion.set(index, new Map());
+}
+
+function advanceToNextQuestion(room) {
+  const nextIndex = room.currentIndex + 1;
+  if (nextIndex >= room.questions.length) {
+    room.status = "ended";
+    room.currentIndex = -1;
+    return;
+  }
+  startQuestion(room, nextIndex);
+}
+
+function ensureLeaderboardAdvance(room) {
+  if (room.status !== "leaderboard") return;
+  const elapsed = (getNow() - room.leaderboardStart) / 1000;
+  if (elapsed >= LEADERBOARD_DURATION_SECONDS) {
+    advanceToNextQuestion(room);
   }
 }
 
@@ -102,10 +132,12 @@ app.post("/api/create-room", (req, res) => {
     currentIndex: -1,
     questionStart: 0,
     revealStart: 0,
+    leaderboardStart: 0,
     players: new Map(),
     answersByQuestion: new Map(),
     quizId: null,
-    quizTitle: ""
+    quizTitle: "",
+    autoStart: false
   });
 
   res.json({ roomCode, hostToken });
@@ -134,6 +166,9 @@ app.post("/api/join", (req, res) => {
     lastCorrect: null,
     lastAnswerIndex: null
   });
+  if (room.autoStart && room.status === "lobby" && room.questions.length > 0) {
+    startQuestion(room, 0);
+  }
   res.json({ playerId });
 });
 
@@ -310,12 +345,7 @@ app.post("/api/room/:code/start", (req, res) => {
     return;
   }
 
-  room.status = "question";
-  room.currentIndex = 0;
-  room.questionStart = getNow();
-  room.revealStart = 0;
-  resetPlayerRound(room);
-  room.answersByQuestion.set(0, new Map());
+  startQuestion(room, 0);
   res.json({ ok: true });
 });
 
@@ -333,19 +363,24 @@ app.post("/api/room/:code/next", (req, res) => {
     return;
   }
 
-  const nextIndex = room.currentIndex + 1;
-  if (nextIndex >= room.questions.length) {
-    room.status = "ended";
-    room.currentIndex = -1;
-  } else {
-    room.status = "question";
-    room.currentIndex = nextIndex;
-    room.questionStart = getNow();
-    room.revealStart = 0;
-    resetPlayerRound(room);
-    room.answersByQuestion.set(nextIndex, new Map());
-  }
+  advanceToNextQuestion(room);
   res.json({ ok: true });
+});
+
+app.post("/api/room/:code/auto-start", (req, res) => {
+  const roomCode = req.params.code.toUpperCase();
+  const { hostToken, enabled } = req.body || {};
+  const room = rooms.get(roomCode);
+  if (!room) {
+    res.status(404).json({ error: "Room not found" });
+    return;
+  }
+  if (room.hostToken !== hostToken) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  room.autoStart = Boolean(enabled);
+  res.json({ ok: true, autoStart: room.autoStart });
 });
 
 app.post("/api/answer", (req, res) => {
@@ -415,6 +450,7 @@ app.get("/api/room/:code/state", (req, res) => {
 
   ensureQuestionAdvance(room);
   ensureRevealAdvance(room);
+  ensureLeaderboardAdvance(room);
 
   if (role === "host") {
     if (room.hostToken !== hostToken) {

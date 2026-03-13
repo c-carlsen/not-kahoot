@@ -88,6 +88,27 @@ export default function Host() {
     await api(`/api/room/${roomCode}/next`, "POST", { hostToken });
   }
 
+  async function setAutoStart(enabled) {
+    if (!roomCode) return;
+    try {
+      await api(`/api/room/${roomCode}/auto-start`, "POST", { hostToken, enabled });
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  async function enterLiveView() {
+    if (!roomCode || !loadedQuestionCount) return;
+    await setAutoStart(true);
+    setView("live");
+    setMessage("Auto-start enabled. First player to join will start the quiz.");
+  }
+
+  async function exitLiveView() {
+    await setAutoStart(false);
+    setView("setup");
+  }
+
   async function copyShareLink() {
     if (!shareLink) return;
     try {
@@ -188,7 +209,7 @@ export default function Host() {
             </Link>
             <button
               className="btn"
-              onClick={() => setView("live")}
+              onClick={enterLiveView}
               disabled={!roomCode || !loadedQuestionCount}
             >
               Go to live host view
@@ -241,7 +262,7 @@ export default function Host() {
                 <p className="metric-value">{Math.max(totalPlayers - answeredCount, 0)}</p>
               </div>
             </div>
-            <button className="btn secondary" onClick={() => setView("setup")}>
+            <button className="btn secondary" onClick={exitLiveView}>
               Back to setup
             </button>
           </div>
